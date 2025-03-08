@@ -42,10 +42,10 @@ Quindi **basta impazzire con Stack Overflow**: qui hai **TUTTO**. 😎
 
 ## 🚀 **Come Usare Questa Repo?**  
 
-### **1️⃣ Clona la repo**  
-```bash
-git clone https://github.com/tuo-username/mri-brain-toolbox.git
-cd mri-brain-toolbox
+### **1️⃣ Clona la repo **  
+
+Fine
+
 
 📢 Perché Questa Repo è Diversa?
 
