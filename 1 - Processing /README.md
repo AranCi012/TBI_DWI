@@ -129,7 +129,13 @@ Dove:
 emanuele.amato@uniba.it
 eamato@ethz.ch
 
+
+## ** Curiosità Random **
+
+**Lo sapevi che in giappone non si regalano i pettini alle ragazze che porta male?**
+
 🚀
+
 
 
 

@@ -154,3 +154,6 @@ Se hai bisogno di usare `fsleyes` o `mrview`, ricordati di attivare X11 con `ssh
 
 🚀 **Buon lavoro con l'analisi delle immagini!**
 
+## ** Curiosità Random **
+
+**Le anatre non fanno eco (o almeno così si dice). C'è una leggenda che dice che il "quack" delle anatre non produce eco. In realtà è falso, ma il loro verso è talmente diffuso e confuso che spesso l'eco non si percepisce bene**
