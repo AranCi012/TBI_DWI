@@ -101,5 +101,8 @@ Per ulteriori informazioni su MRtrix3:
 
 ---
 
-**Lo sapevi lo squale riesce a girare gli occhi al contrario?**
+## **8. Curiosità Random**
 
+**Lo sapevi lo squalo riesce a girare gli occhi al contrario?**
+
+---

@@ -131,7 +131,7 @@ eamato@ethz.ch
 
 ---
 
-## ** Curiosità Random **
+## Curiosità Random 
 
 **Lo sapevi che in giappone non si regalano i pettini alle ragazze che porta male?**
 
