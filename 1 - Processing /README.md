@@ -11,13 +11,38 @@ Le immagini DWI sono sequenze di immagini 3D acquisite a diversi gradienti di di
 - **MRtrix3** per il preprocessing e la tractografia
 - **FSL** per la registrazione e l'estrazione delle ROI
 
-Per creare l'environment corretto e configurato in maniera ottimale, consulta il [README dell'installazione](../README.md).
+Per creare l'environment corretto e configurato in maniera ottimale, consulta il [README dell'installazione](0-setup/setup.md).
 
 ### **Dati di Input**
 - Immagini DWI in formato NIfTI (`*.nii.gz`)
 - File di gradienti (`*.bvec` e `*.bval`)
 - Atlanti HarvardOxford per l'estrazione delle ROI
 
+📌 Modifica del README
+
+Aggiungi questa sezione nel README sotto la parte dei dati di input.
+
+### **Configurazione dei Path degli Atlanti**
+Nel file di script, i path degli atlanti e delle immagini di riferimento sono preconfigurati in base all'installazione su un server specifico. **Se usi la pipeline su un'altra macchina**, devi modificare i seguenti path nel file di script `dwi_processing_cicle.sh` per adattarli alla tua installazione:
+
+```bash
+# Definizione degli atlanti e riferimenti
+ATLAS="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
+ATLAS_CORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz"
+ATLAS_SUBCORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"
+MNI_REF="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
+```
+🔹 Come modificare i path?
+
+Se hai installato FSL e gli atlanti HarvardOxford in una posizione diversa, cambia i path con il tuo percorso.
+Per trovare la posizione corretta degli atlanti sul tuo sistema, esegui:
+```bash
+echo $FSLDIR
+```
+e naviga dentro la directory 
+```bash
+$FSLDIR/data/atlases/HarvardOxford/ per verificare dove si trovano i file richiesti.
+```
 
 ## Struttura della Pipeline
 
