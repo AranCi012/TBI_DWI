@@ -121,9 +121,31 @@ Se tutti i comandi funzionano senza errori, l'installazione è completa! ✅
 ---
 
 
-## **Debug di Mrtrix3
+## **Debug di MRtrix3**
 
-Dobbiamo fare in modo che il nostro script venga visto 
+Se l'installazione di **MRtrix3** è stata effettuata tramite **Conda**, è importante verificare il percorso corretto della directory contenente i binari di MRtrix3.  
+L'utente può ottenere questo percorso eseguendo il seguente comando:
+
+```bash
+echo $(dirname $(which mrconvert))
+```
+
+Spiegazione del comando:
+which mrconvert → Trova il percorso esatto del comando mrconvert, uno degli strumenti principali di MRtrix3.
+dirname → Estrae solo la directory che contiene il file eseguibile.
+echo → Stampa il percorso risultante.
+
+Esempio di output:
+```bash
+/lustrehome/utente/.conda/envs/tbi_dwi_py310/bin
+```
+
+A questo punto, l'utente dovrà aggiornare il valore della variabile MRTRIX_BIN nello script  [`1 - Processing/dwi_processing_cicle.sh`](1%20-%20Processing/dwi_processing_cicle.sh), sostituendo il percorso corretto
+
+MRTRIX_BIN=""
+
+con l'output del comando precedente.
+
 
 ## **Conclusione**
 Ora hai **FSL** e **MRtrix3** installati e pronti all'uso nel tuo ambiente Conda. 🎉
