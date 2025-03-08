@@ -50,9 +50,9 @@ Fine
 
 ## 📢 Perché Questa Repo è Diversa?
 
-🌟 Qui trovi tutto senza impazzire → codice già pronto, niente mille ricerche su Google.
-🌟 Spiegazioni nerd e anime-friendly → perché un po' di cultura otaku aiuta sempre.
-🌟 Se qualcosa non va, trovi il fix qui prima ancora che tu te ne accorga.
+- 🌟 Qui trovi tutto senza impazzire → codice già pronto, niente mille ricerche su Google.
+- 🌟 Spiegazioni nerd e anime-friendly → perché un po' di cultura otaku aiuta sempre.
+- 🌟 Se qualcosa non va, trovi il fix qui prima ancora che tu te ne accorga.
 
 "L'analisi delle MRI non è difficile, è solo un kaizoku no takara nascosto sotto troppi paper!" 🏴‍☠️
 
