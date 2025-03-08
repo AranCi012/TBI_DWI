@@ -46,17 +46,21 @@ Quindi **basta impazzire con Stack Overflow**: qui hai **TUTTO**. 😎
 
 Fine
 
+---
 
-📢 Perché Questa Repo è Diversa?
+## 📢 Perché Questa Repo è Diversa?
 
 🌟 Qui trovi tutto senza impazzire → codice già pronto, niente mille ricerche su Google.
 🌟 Spiegazioni nerd e anime-friendly → perché un po' di cultura otaku aiuta sempre.
 🌟 Se qualcosa non va, trovi il fix qui prima ancora che tu te ne accorga.
 
 "L'analisi delle MRI non è difficile, è solo un kaizoku no takara nascosto sotto troppi paper!" 🏴‍☠️
-📬 Contatti e Crediti
 
-👨‍💻 Creatore: Emanuele (AranCi012 🍊)
+---
+
+### 📬 Contatti e Crediti
+
+### 👨‍💻 Creatore: Emanuele (AranCi012 🍊)
 📩 Domande, suggerimenti o bug report? Apri una issue o scrivimi!
 emanuele.amato@uniba.it
 eamato@ethz.ch
