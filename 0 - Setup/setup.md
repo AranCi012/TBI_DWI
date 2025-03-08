@@ -43,7 +43,7 @@ conda activate fsl_env
 ---
 
 ## **3️⃣ Installazione di FSL**
-Scarica l'installer aggiornato di **FSL** dal mio repo [README dell'installazione](../README.md)..
+Scarica l'installer aggiornato di **FSL** dal mio repo ( fslinstaller.py ) .
 
 Esegui l'installer con il supporto per Conda:
 
