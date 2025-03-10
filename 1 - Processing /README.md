@@ -1,29 +1,29 @@
 # README - Pipeline DWI Processing
 
-## Descrizione Generale
-Questa pipeline automatizza il preprocessing delle immagini di Diffusion-Weighted Imaging (DWI) per l'analisi della diffusione cerebrale. L'obiettivo principale è la correzione degli artefatti, la registrazione in spazio standard e la generazione di modelli di diffusione utili per la tractografia.
+# README - Pipeline DWI Processing
 
-Le immagini DWI sono sequenze di immagini 3D acquisite a diversi gradienti di diffusione nel tempo, creando un volume 4D (x, y, z, tempo). Il primo volume (b0) è un'immagine senza diffusione pesata ed è usato come riferimento per la registrazione agli atlanti standard.
+## Descrizione Generale
+Questa pipeline automatizza il preprocessing delle immagini di **Diffusion-Weighted Imaging (DWI)** per l'analisi della diffusione cerebrale. L'obiettivo principale è la correzione degli artefatti, la registrazione in spazio standard e la generazione di modelli di diffusione utili per la **tractografia probabilistica**.
+
+Le immagini DWI sono sequenze di immagini **4D** (x, y, z, tempo), in cui il primo volume (**b0**) è un'immagine senza diffusione pesata, utilizzata come riferimento per la registrazione agli atlanti standard.
+
+---
 
 ## Requisiti
-### **Software**
-
+### **Software Necessario**
 - **MRtrix3** per il preprocessing e la tractografia
-- **FSL** per la registrazione e l'estrazione delle ROI
+- **FSL** per la registrazione e la gestione degli atlanti
+- **CUDA** per l'accelerazione del preprocessing su GPU (opzionale, ma consigliato)
 
-Per creare l'environment corretto e configurato in maniera ottimale, consulta il [README dell'installazione](0-setup/setup.md).
+Per installare l'ambiente corretto, consulta il [README dell'installazione](0-setup/setup.md).
 
 ### **Dati di Input**
-- Immagini DWI in formato NIfTI (`*.nii.gz`)
-- File di gradienti (`*.bvec` e `*.bval`)
-- Atlanti HarvardOxford per l'estrazione delle ROI
-
-📌 Modifica del README
-
-Aggiungi questa sezione nel README sotto la parte dei dati di input.
+- Immagini DWI in formato **NIfTI (`*.nii.gz`)**
+- File di gradienti di diffusione **(`*.bvec` e `*.bval`)**
+- Atlanti **HarvardOxford** per la segmentazione cerebrale
 
 ### **Configurazione dei Path degli Atlanti**
-Nel file di script, i path degli atlanti e delle immagini di riferimento sono preconfigurati in base all'installazione su un server specifico. **Se usi la pipeline su un'altra macchina**, devi modificare i seguenti path nel file di script `dwi_processing_cicle.sh` per adattarli alla tua installazione:
+Nel file `dwi_processing_pipeline.sh`, i path agli atlanti e alle immagini di riferimento sono preconfigurati. Se usi la pipeline su un'altra macchina, devi modificare i seguenti path:
 
 ```bash
 # Definizione degli atlanti e riferimenti
@@ -32,136 +32,129 @@ ATLAS_CORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/Harvard
 ATLAS_SUBCORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"
 MNI_REF="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
 ```
-🔹 Come modificare i path?
-
-Se hai installato FSL e gli atlanti HarvardOxford in una posizione diversa, cambia i path con il tuo percorso.
-Per trovare la posizione corretta degli atlanti sul tuo sistema, esegui:
+Per verificare la posizione degli atlanti, esegui:
 ```bash
 echo $FSLDIR
+ls $FSLDIR/data/atlases/HarvardOxford/
 ```
-e naviga dentro la directory 
-```bash
-$FSLDIR/data/atlases/HarvardOxford/ per verificare dove si trovano i file richiesti.
-```
-
-# Pipeline DWI - Trattografia probabilistica con MRtrix3
-
-## 📚 Introduzione
-
-Questa pipeline è progettata per elaborare **immagini DWI (Diffusion-Weighted Imaging)** ed estrarre **trattografie probabilistiche** utilizzando **MRtrix3**.  
-
-Le immagini DWI sono dati di **diffusione dell'acqua nel cervello**, registrati in una griglia **4D**:
-- **Le prime tre dimensioni** rappresentano lo spazio (X, Y, Z).
-- **La quarta dimensione** corrisponde alle direzioni di diffusione registrate (gradienti di diffusione).  
-Ad esempio, un'immagine con dimensioni `128 × 128 × 78 × 65` contiene **65 volumi** di diffusione acquisiti.
-
-La **trattografia** permette di ricostruire le **connessioni anatomiche della materia bianca**, simulando il percorso delle fibre neurali.
 
 ---
 
 ## 🚀 **Fasi della Pipeline**
 
 ### **1️⃣ Preprocessing DWI**
-Prima di generare la trattografia, è fondamentale correggere le distorsioni dell'immagine.
 
-1. **Estrazione del primo volume b=0 (b0)**  
-   - Il volume b=0 è il riferimento, privo di contrasto di diffusione.
-   - Viene usato per la registrazione su un template standard (MNI152).
-   ```bash
-   "$MRTRIX_BIN/mrconvert" "$DWI" "$OUT_PATIENT_DIR/preprocessing/dwi_b0.nii.gz" -coord 3 0
-   ```
-
-2. **Registrazione su spazio standard (MNI152)**  
-   - Viene usato `FLIRT` (FSL) per allineare il b0 all'MNI152.
-   ```bash
-   flirt -in "$OUT_PATIENT_DIR/preprocessing/dwi_b0.nii.gz" -ref "$MNI_REF" \
-         -out "$OUT_PATIENT_DIR/preprocessing/dwi_b0_mni.nii.gz" \
-         -omat "$OUT_PATIENT_DIR/preprocessing/dwi2mni.mat" -dof 12
-   ```
-   
-3. **Correzione di movimento ed effetti di suscettibilità magnetica**  
-   - `dwifslpreproc` corregge i movimenti del paziente e distorsioni indotte dal campo magnetico.
-   ```bash
-   "$MRTRIX_BIN/dwifslpreproc" "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
-        "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -fslgrad "$BVEC" "$BVAL" \
-        -pe_dir AP -rpe_none -eddy_options "'--repol'"
-   ```
-
----
-
-### **2️⃣ Calcolo del tensore di diffusione**
-Una volta corretti gli artefatti, si calcola il **tensore di diffusione**, che descrive come l'acqua si muove nei tessuti:
-
+#### **1.1 Estrazione del primo volume (b0)**
+Il volume **b0** è utilizzato per la registrazione su spazio standard. Viene estratto con:
 ```bash
-"$MRTRIX_BIN/dwi2tensor" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" "$OUT_PATIENT_DIR/dti_metrics/dti.mif"
-"$MRTRIX_BIN/tensor2metric" "$OUT_PATIENT_DIR/dti_metrics/dti.mif" \
-   -fa "$OUT_PATIENT_DIR/dti_metrics/fa.mif" -adc "$OUT_PATIENT_DIR/dti_metrics/md.mif"
-```
-- **FA (Fractional Anisotropy)**: Misura l'anisotropia della diffusione.
-- **MD (Mean Diffusivity)**: Misura la diffusione media in tutte le direzioni.
-
----
-
-### **3️⃣ Ricostruzione della funzione di orientamento della diffusione (FOD)**
-La **FOD (Fiber Orientation Distribution)** permette di modellare la direzione delle fibre nei voxel cerebrali.  
-Si determina in base al tipo di acquisizione:
-
-- **Multi-shell (più valori di b-value)** → `dwi2response dhollander` (modello avanzato multi-tessuto).  
-- **Single-shell (un solo b-value)** → `dwi2response tournier` (modello standard).
-
-```bash
-"$MRTRIX_BIN/dwi2response" tournier "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-    "$OUT_PATIENT_DIR/tractography/response.txt"
+$MRTRIX_BIN/mrconvert "$DWI" "$OUT_PATIENT_DIR/preprocessing/dwi_b0.nii.gz" -coord 3 0
 ```
 
-Le risposte vengono usate per calcolare la **ricostruzione CSD (Constrained Spherical Deconvolution)**:
-
+#### **1.2 Registrazione su spazio MNI152**
+Viene usato **FLIRT** (FSL) per allineare il volume b0 allo spazio standard:
 ```bash
-"$MRTRIX_BIN/dwi2fod" csd "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-   "$OUT_PATIENT_DIR/tractography/response.txt" "$OUT_PATIENT_DIR/tractography/fod.mif"
+flirt -in "$OUT_PATIENT_DIR/preprocessing/dwi_b0.nii.gz" -ref "$MNI_REF" \
+      -out "$OUT_PATIENT_DIR/preprocessing/dwi_b0_mni.nii.gz" \
+      -omat "$OUT_PATIENT_DIR/preprocessing/dwi2mni.mat" -dof 12
+```
+La trasformazione viene applicata all'intera immagine 4D:
+```bash
+applywarp --ref="$MNI_REF" \
+         --in="$DWI" \
+         --out="$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
+         --premat="$OUT_PATIENT_DIR/preprocessing/dwi2mni.mat"
+```
+
+#### **1.3 Correzione degli artefatti (dwifslpreproc)**
+`dwifslpreproc` corregge i movimenti del paziente e distorsioni da suscettibilità magnetica:
+```bash
+CUDA_VISIBLE_DEVICES=0 "$MRTRIX_BIN/dwifslpreproc" "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
+    "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -fslgrad "$BVEC" "$BVAL" \
+    -pe_dir AP -rpe_none -eddy_options "'--repol'"
 ```
 
 ---
 
-### **4️⃣ Creazione della maschera cerebrale**
-Per evitare di generare tratti al di fuori del cervello, creiamo una **maschera binaria**:
+### **2️⃣ Modellizzazione della Diffusione**
 
+#### **2.1 Calcolo del Tensore di Diffusione**
 ```bash
-"$MRTRIX_BIN/dwi2mask" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
+$MRTRIX_BIN/dwi2tensor "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" "$OUT_PATIENT_DIR/dti_metrics/dti.mif"
+$MRTRIX_BIN/tensor2metric "$OUT_PATIENT_DIR/dti_metrics/dti.mif" \
+    -fa "$OUT_PATIENT_DIR/dti_metrics/fa.mif" -adc "$OUT_PATIENT_DIR/dti_metrics/md.mif"
+```
+
+---
+
+### **3️⃣ Trattografia probabilistica con iFOD2**
+
+Le FOD (Fiber Orientation Distributions) sono stime della distribuzione delle direzioni delle fibre in ogni voxel di un'immagine di diffusione. Il modo in cui vengono calcolate dipende dal numero di shell nella sequenza di diffusione utilizzata.
+
+Cosa significa "in base al numero di shell"?
+Il numero di shell si riferisce ai diversi livelli di b-value usati nell'acquisizione dell'immagine di diffusione (DWI) [Si controllino i valori all'interno dei file bvec e bval]. I b-value definiscono l'intensità della diffusione misurata, e le acquisizioni possono essere:
+
+- Single-shell (una sola b-value, ad esempio b = 1000 s/mm²)
+- Multi-shell (più b-value, ad esempio b = 1000 e 3000 s/mm²)
+- DENSE (diffusion spectrum imaging, DSI) con un ampio range di b-value
+
+A seconda del numero di shell, vengono utilizzati modelli di ricostruzione diversi per ottenere le FOD:
+
+Single-shell → Generalmente si utilizza il modello CSD (Constrained Spherical Deconvolution) classico.
+Multi-shell → Si usa MSMT-CSD (Multi-Shell Multi-Tissue Constrained Spherical Deconvolution), che permette di distinguere più componenti, come la materia bianca, la materia grigia e il liquido cerebrospinale (CSF).
+DENSE (DSI, Q-space methods) → Tecniche più avanzate come Q-ball imaging o diffusion spectrum imaging.
+
+#### **3.1 Creazione della maschera cerebrale**
+```bash
+$MRTRIX_BIN/dwi2mask "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
     "$OUT_PATIENT_DIR/preprocessing/mask.mif"
 ```
 
----
-
-### **5️⃣ Generazione della trattografia probabilistica con iFOD2**
-Ora possiamo generare i tratti delle fibre nervose utilizzando un algoritmo probabilistico (`iFOD2`):
-
+#### **3.2 Ricostruzione della Funzione di Orientamento della Diffusione (FOD)**
+La FOD viene calcolata in base al numero di shell:
 ```bash
-"$MRTRIX_BIN/tckgen" "$OUT_PATIENT_DIR/tractography/fod.mif" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
-    -seed_dynamic "$OUT_PATIENT_DIR/tractography/fod.mif" \
+SHELL_COUNT=$("$MRTRIX_BIN/mrinfo" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -shell_bvalues | wc -w)
+if [ "$SHELL_COUNT" -gt 1 ]; then
+    "$MRTRIX_BIN/dwi2response" dhollander "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
+        "$OUT_PATIENT_DIR/tractography/response_wm.txt" \
+        "$OUT_PATIENT_DIR/tractography/response_gm.txt" \
+        "$OUT_PATIENT_DIR/tractography/response_csf.txt"
+else
+    "$MRTRIX_BIN/dwi2response" tournier "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
+        "$OUT_PATIENT_DIR/tractography/response.txt"
+fi
+```
+
+#### **3.3 Generazione della trattografia probabilistica con iFOD2**
+```bash
+$MRTRIX_BIN/tckgen "$OUT_PATIENT_DIR/tractography/fod_wm.mif" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
+    -seed_dynamic "$OUT_PATIENT_DIR/tractography/fod_wm.mif" \
     -mask "$OUT_PATIENT_DIR/preprocessing/mask.mif" \
     -select 1000000 -algorithm iFOD2
 ```
 
 ---
 
-## 📊 **Risultati finali**
+## 📊 **Output della Pipeline**
 Dopo l'esecuzione della pipeline, otterrai:
-- **`tracts.tck`** → File che contiene la **trattografia probabilistica**.
-- **`fa.mif` / `md.mif`** → Indici di diffusione.
-- **`fod.mif`** → Funzione di orientamento della diffusione.
+- **`tracts.tck`** → Trattografia probabilistica
+- **`fa.mif` / `md.mif`** → Indici di diffusione
+- **`fod.mif`** → Funzione di orientamento della diffusione
 
-Puoi visualizzare i risultati con `MRView`:
-
+Puoi visualizzare i risultati con:
 ```bash
-"$MRTRIX_BIN/mrview" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -tractography.load "$OUT_PATIENT_DIR/tractography/tracts.tck"
+$MRTRIX_BIN/mrview "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -tractography.load "$OUT_PATIENT_DIR/tractography/tracts.tck"
 ```
 
 ---
 
-## 🔍 **Conclusione**
-Questa pipeline guida il processo **dalla DWI grezza alla ricostruzione delle fibre cerebrali**.  
-Anche senza immagini T1, possiamo eseguire una **trattografia affidabile** basata sulla diffusione. 🚀
+## **Autore**
+**Emanuele Amato**  
+emanuele.amato@uniba.it  
+eamato@ethz.ch  
+
+🚀
+
+
 
 
 ## Struttura delle Cartelle
