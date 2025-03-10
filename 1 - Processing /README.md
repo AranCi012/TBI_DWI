@@ -97,9 +97,9 @@ Il numero di shell si riferisce ai diversi livelli di b-value usati nell'acquisi
 
 A seconda del numero di shell, vengono utilizzati modelli di ricostruzione diversi per ottenere le FOD:
 
-Single-shell → Generalmente si utilizza il modello CSD (Constrained Spherical Deconvolution) classico.
-Multi-shell → Si usa MSMT-CSD (Multi-Shell Multi-Tissue Constrained Spherical Deconvolution), che permette di distinguere più componenti, come la materia bianca, la materia grigia e il liquido cerebrospinale (CSF).
-DENSE (DSI, Q-space methods) → Tecniche più avanzate come Q-ball imaging o diffusion spectrum imaging.
+1. Single-shell → Generalmente si utilizza il modello CSD (Constrained Spherical Deconvolution) classico.
+2. Multi-shell → Si usa MSMT-CSD (Multi-Shell Multi-Tissue Constrained Spherical Deconvolution), che permette di distinguere più componenti, come la materia bianca, la materia grigia e il liquido cerebrospinale (CSF).
+3. DENSE (DSI, Q-space methods) → Tecniche più avanzate come Q-ball imaging o diffusion spectrum imaging.
 
 #### **3.1 Creazione della maschera cerebrale**
 ```bash
