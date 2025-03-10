@@ -3,7 +3,7 @@
 ---
 
 ## **1. Introduzione**
-Questa relazione documenta le modifiche apportate alla **Pipeline DWI**, aggiornata alla versione **7 marzo 2025**. La pipeline automatizza l'elaborazione dei dati **Diffusion-Weighted Imaging (DWI)**, eseguendo fasi cruciali di preprocessing, modellizzazione della diffusione e trattografia.
+Questa relazione documenta le modifiche apportate alla **Pipeline DWI**, aggiornata alla versione **10 marzo 2025**. La pipeline automatizza l'elaborazione dei dati **Diffusion-Weighted Imaging (DWI)**, eseguendo fasi cruciali di preprocessing, modellizzazione della diffusione e trattografia.
 
 L'aggiornamento ha migliorato la robustezza e l'affidabilità del flusso di lavoro, con una particolare enfasi sulla sostituzione di metodi obsoleti con strumenti più avanzati di **MRtrix3**.
 
@@ -17,6 +17,7 @@ La versione aggiornata della pipeline introduce:
 - **Migliore modellizzazione della diffusione** utilizzando `dwi2tensor` e `dwi2fod` (MRtrix3) al posto di **BEDPOSTX (FSL)**.
 - **Trattografia più efficiente** con `tckgen` e il metodo **iFOD2**, riducendo i bias rispetto a `probtrackx2` (FSL).
 - **Ottimizzazione del formato dei dati** per il Machine Learning e Graph Neural Networks (GNN), mantenendo la compatibilità con `.nii.gz`.
+- **Automazione della registrazione delle immagini 4D**, eliminando passaggi manuali superflui.
 
 ---
 
@@ -64,7 +65,13 @@ La tabella seguente confronta la versione precedente della pipeline con la nuova
 
 ---
 
-## **5. Conclusioni e Vantaggi**
+## **5. Prestazioni e Tempi di Computazione**
+- La computazione per **singolo paziente richiede circa un'ora o poco più** su un sistema con **5 GB di RAM GPU** e **16 CPU multithread**.
+- L'uso di GPU e ottimizzazioni con MRtrix3 riduce significativamente i tempi rispetto alle versioni precedenti.
+
+---
+
+## **6. Conclusioni e Vantaggi**
 La versione aggiornata della **Pipeline DWI** migliora significativamente l'elaborazione dei dati di diffusione cerebrale:
 - **Precisione superiore** nella correzione degli artefatti e nella modellizzazione della diffusione.
 - **Maggiore efficienza** nei tempi di esecuzione grazie all’uso di MRtrix3.
@@ -74,32 +81,17 @@ Queste migliorie rendono la pipeline più adatta alle esigenze attuali della ric
 
 ---
 
-## **6. Esecuzione della Pipeline**
-Per eseguire la pipeline, utilizzare il seguente comando:
-```bash
-./dwi_processing_pipeline.sh <input_dir> <output_dir>
-```
-Esempio:
-```bash
-./dwi_processing_pipeline.sh raw_DWI processed_DWI
-```
-Dove:
-- `raw_DWI`: directory contenente le immagini DWI grezze.
-- `processed_DWI`: directory di output con i dati elaborati.
-
----
-
 ## **7. Referenze e Contatti**
 Per dettagli e richieste di supporto contattare:
 - **Emanuele Amato**  
-- **Email:** 
+- **Email:**  
 emanuele.amato@uniba.it
 eamato@ethz.ch
 
 Per ulteriori informazioni su MRtrix3:  
 [https://www.mrtrix.org/](https://www.mrtrix.org/)
 
----
+
 
 ## **8. Curiosità Random**
 
