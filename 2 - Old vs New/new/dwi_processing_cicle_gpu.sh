@@ -54,8 +54,7 @@ MNI_REF="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
 for PATIENT_DIR in "$INPUT_DIR"/*/; do
     PATIENT_ID=$(basename "$PATIENT_DIR")
     echo "Processing patient: $PATIENT_ID"
-    export MRTRIX_NTHREADS=64
-
+    
     # Definizione dei file di input
     DWI=$(find "$PATIENT_DIR" -maxdepth 1 -type f -name "*.nii.gz" | head -n 1)
     BVEC=$(find "$PATIENT_DIR" -maxdepth 1 -type f -name "*.bvec" | head -n 1)
@@ -153,6 +152,41 @@ for PATIENT_DIR in "$INPUT_DIR"/*/; do
         -seed_dynamic "$OUT_PATIENT_DIR/tractography/fod_wm.mif" \
         -mask "$OUT_PATIENT_DIR/preprocessing/mask.mif" \
         -select 1000000 -algorithm iFOD2
+
+     # 🔹 [Step 5.3] Creazione della parcellizzazione per la matrice di connettività
+    echo "[Step 5.3] Creazione della parcellizzazione per $PATIENT_ID"
+
+    # Controllo se l'atlante esiste
+    if [ ! -f "$ATLAS" ]; then
+        echo "Errore: Il file dell'atlante $ATLAS non esiste!" >&2
+        exit 1
+    fi
+
+    # Registrazione dell'atlante nello spazio delle immagini DWI
+    flirt -in "$ATLAS" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
+        -out "$OUT_PATIENT_DIR/ROIs/parcellation.nii.gz" -interp nearestneighbour -dof 12
+
+    echo "Parcellizzazione generata: $OUT_PATIENT_DIR/ROIs/parcellation.nii.gz"
+
+    # 🔹 Generazione della matrice di connettività
+    echo "[Step 6] Generazione della matrice di connettività per $PATIENT_ID"
+
+    # Definizione del file di parcellizzazione (deve essere una segmentazione cerebrale)
+    PARCELLATION="$OUT_PATIENT_DIR/ROIs/parcellation.nii.gz"
+
+    if [ ! -f "$PARCELLATION" ]; then
+        echo "Errore: Il file di parcellizzazione $PARCELLATION non esiste!" >&2
+        exit 1
+    fi
+
+    # Creazione della matrice di connettività
+    "$MRTRIX_BIN/tck2connectome" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
+        "$PARCELLATION" \
+        "$OUT_PATIENT_DIR/connectivity_matrix.csv" \
+        -symmetric -scale_invnodevol -stat_edge mean
+
+    echo "Matrice di connettività generata per $PATIENT_ID: $OUT_PATIENT_DIR/connectivity_matrix.csv"
+
     done
 
 echo "Tutti i pazienti sono stati processati con successo!"

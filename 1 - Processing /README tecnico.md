@@ -78,6 +78,7 @@ eamato@ethz.ch
 ---
 
 ## Curiosità sui Modi di Dire Giapponesi
+
 In Giappone si usa il detto **「猿も木から落ちる」 (Saru mo ki kara ochiru)**, che significa *"Anche le scimmie cadono dagli alberi"*. Questo proverbio viene usato per ricordare che anche i più esperti possono commettere errori, e che sbagliare è umano! 🐵🍃
 
 ---
