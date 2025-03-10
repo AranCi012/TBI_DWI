@@ -1,7 +1,5 @@
 # README - Pipeline DWI Processing
 
-# README - Pipeline DWI Processing
-
 ## Descrizione Generale
 Questa pipeline automatizza il preprocessing delle immagini di **Diffusion-Weighted Imaging (DWI)** per l'analisi della diffusione cerebrale. L'obiettivo principale è la correzione degli artefatti, la registrazione in spazio standard e la generazione di modelli di diffusione utili per la **tractografia probabilistica**.
 
