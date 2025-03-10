@@ -47,8 +47,6 @@ mkdir -p "$OUTPUT_DIR" || { echo "Errore: Impossibile creare la directory di out
 ATLAS="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
 ATLAS_CORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz"
 ATLAS_SUBCORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"
-MNI_REF="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
-
 
 # Loop su ogni paziente
 for PATIENT_DIR in "$INPUT_DIR"/*/; do
@@ -153,40 +151,87 @@ for PATIENT_DIR in "$INPUT_DIR"/*/; do
         -mask "$OUT_PATIENT_DIR/preprocessing/mask.mif" \
         -select 1000000 -algorithm iFOD2
 
-     # 🔹 [Step 5.3] Creazione della parcellizzazione per la matrice di connettività
-    echo "[Step 5.3] Creazione della parcellizzazione per $PATIENT_ID"
-
-    # Controllo se l'atlante esiste
-    if [ ! -f "$ATLAS" ]; then
-        echo "Errore: Il file dell'atlante $ATLAS non esiste!" >&2
+        # ==========================
+    # 6. Registrazione e Creazione delle ROI
+    # ==========================
+    echo "[Step 6] Registrazione degli atlanti e creazione delle ROI per $PATIENT_ID"
+    
+    # Definizione delle parcellizzazioni registrate
+    PARCELLATION_CORTICAL="$OUT_PATIENT_DIR/ROIs/parcellation_cortical.nii.gz"
+    PARCELLATION_SUBCORTICAL="$OUT_PATIENT_DIR/ROIs/parcellation_subcortical.nii.gz"
+    PARCELLATION_TOTAL="$OUT_PATIENT_DIR/ROIs/parcellation_total.nii.gz"
+    
+    # Registrazione degli atlanti
+    flirt -in "$ATLAS_CORTICAL" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
+          -out "$PARCELLATION_CORTICAL" -interp nearestneighbour -dof 12
+    
+    flirt -in "$ATLAS_SUBCORTICAL" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
+          -out "$PARCELLATION_SUBCORTICAL" -interp nearestneighbour -dof 12
+    
+    # Unire le due parcellizzazioni in un'unica immagine
+    fslmaths "$PARCELLATION_CORTICAL" -add "$PARCELLATION_SUBCORTICAL" "$PARCELLATION_TOTAL"
+    
+    # Verifica che la parcellizzazione sia stata creata correttamente
+    if [ ! -f "$PARCELLATION_TOTAL" ]; then
+        echo "Errore: Il file di parcellizzazione totale non è stato creato!" >&2
         exit 1
     fi
-
-    # Registrazione dell'atlante nello spazio delle immagini DWI
-    flirt -in "$ATLAS" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-        -out "$OUT_PATIENT_DIR/ROIs/parcellation.nii.gz" -interp nearestneighbour -dof 12
-
-    echo "Parcellizzazione generata: $OUT_PATIENT_DIR/ROIs/parcellation.nii.gz"
-
-    # 🔹 Generazione della matrice di connettività
-    echo "[Step 6] Generazione della matrice di connettività per $PATIENT_ID"
-
-    # Definizione del file di parcellizzazione (deve essere una segmentazione cerebrale)
-    PARCELLATION="$OUT_PATIENT_DIR/ROIs/parcellation.nii.gz"
-
-    if [ ! -f "$PARCELLATION" ]; then
-        echo "Errore: Il file di parcellizzazione $PARCELLATION non esiste!" >&2
-        exit 1
-    fi
-
-    # Creazione della matrice di connettività
+    
+    echo "Parcellizzazione combinata completata: $PARCELLATION_TOTAL"
+    
+    # ==========================
+    # 7. Creazione delle singole ROI
+    # ==========================
+    echo "[Step 7] Estrazione delle ROI per $PATIENT_ID"
+    
+    mkdir -p "$OUT_PATIENT_DIR/ROIs/cortical"
+    mkdir -p "$OUT_PATIENT_DIR/ROIs/subcortical"
+    
+    NUM_CORTICAL=48
+    NUM_SUBCORTICAL=21
+    
+    # Estraggo le ROI corticali 
+    for ((i=1; i<=NUM_CORTICAL; i++)); do
+        fslmaths "$PARCELLATION_CORTICAL" -thr $i -uthr $i -bin "$OUT_PATIENT_DIR/ROIs/cortical/ROI_${i}.nii.gz"
+    
+        if [ ! -f "$OUT_PATIENT_DIR/ROIs/cortical/ROI_${i}.nii.gz" ]; then
+            echo "Errore: ROI Corticale $i non è stata generata!" >&2
+            exit 1
+        fi
+    done
+    
+    # Estraggo le ROI subcorticali 
+    for ((i=1; i<=NUM_SUBCORTICAL; i++)); do
+        ROI_INDEX=$((i + 48))  # Le subcorticali iniziano da 49
+        fslmaths "$PARCELLATION_SUBCORTICAL" -thr $i -uthr $i -bin "$OUT_PATIENT_DIR/ROIs/subcortical/ROI_${ROI_INDEX}.nii.gz"
+    
+        if [ ! -f "$OUT_PATIENT_DIR/ROIs/subcortical/ROI_${ROI_INDEX}.nii.gz" ]; then
+            echo "Errore: ROI Subcorticale $ROI_INDEX non è stata generata!" >&2
+            exit 1
+        fi
+    done
+    
+    echo "Tutte le ROI sono state generate."
+    
+    # ==========================
+    # 8. Generazione della Matrice di Connettività
+    # ==========================
+    echo "[Step 8] Generazione della matrice di connettività per $PATIENT_ID"
+    
+    MATRIX_OUTPUT="$OUT_PATIENT_DIR/connectivity_matrix.csv"
+    
     "$MRTRIX_BIN/tck2connectome" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
-        "$PARCELLATION" \
-        "$OUT_PATIENT_DIR/connectivity_matrix.csv" \
+        "$PARCELLATION_TOTAL" \
+        "$MATRIX_OUTPUT" \
         -symmetric -scale_invnodevol -stat_edge mean
-
-    echo "Matrice di connettività generata per $PATIENT_ID: $OUT_PATIENT_DIR/connectivity_matrix.csv"
-
+    
+    if [ ! -f "$MATRIX_OUTPUT" ]; then
+        echo "Errore: La matrice di connettività non è stata generata!" >&2
+        exit 1
+    fi
+    
+    echo "Matrice di connettività generata con successo: $MATRIX_OUTPUT"
+        
     done
 
 echo "Tutti i pazienti sono stati processati con successo!"
