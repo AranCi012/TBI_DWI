@@ -45,8 +45,9 @@ mkdir -p "$OUTPUT_DIR" || { echo "Errore: Impossibile creare la directory di out
 
 # Definizione degli atlanti e riferimenti
 ATLAS="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
-ATLAS_CORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr25-1mm.nii.gz"
-ATLAS_SUBCORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr25-1mm.nii.gz"
+ATLAS_CORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-cort-maxprob-thr0-1mm.nii.gz"
+ATLAS_SUBCORTICAL="/lustrehome/emanueleamato/fsl/data/atlases/HarvardOxford/HarvardOxford-sub-maxprob-thr0-1mm.nii.gz"
+MNI_REF="/lustrehome/emanueleamato/fsl/data/standard/MNI152_T1_1mm.nii.gz"
 
 # Loop su ogni paziente
 for PATIENT_DIR in "$INPUT_DIR"/*/; do
@@ -70,6 +71,8 @@ for PATIENT_DIR in "$INPUT_DIR"/*/; do
     OUT_PATIENT_DIR="$OUTPUT_DIR/$PATIENT_ID"
     mkdir -p "$OUT_PATIENT_DIR"/{preprocessing,dti_metrics,tractography,reports,ROIs}
 
+# ===============================================================================================================================
+
     # ==========================
     # 1. Estrazione primo volume (b0) e Registrazione su MNI152
     # ==========================
@@ -88,6 +91,8 @@ for PATIENT_DIR in "$INPUT_DIR"/*/; do
         --out="$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
         --premat="$OUT_PATIENT_DIR/preprocessing/dwi2mni.mat"
 
+# ===============================================================================================================================
+
     # ==========================
     # 2. Preprocessing DWI
     # ==========================
@@ -99,139 +104,177 @@ for PATIENT_DIR in "$INPUT_DIR"/*/; do
         exit 1
     fi
 
+# ===============================================================================================================================
+
     # ==========================
     # 3. Modellizzazione della diffusione
     # ==========================
     echo "[Step 3] Calcolo del tensore di diffusione per $PATIENT_ID"
     "$MRTRIX_BIN/dwi2tensor" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" "$OUT_PATIENT_DIR/dti_metrics/dti.mif"
-    "$MRTRIX_BIN/tensor2metric" "$OUT_PATIENT_DIR/dti_metrics/dti.mif" -fa "$OUT_PATIENT_DIR/dti_metrics/fa.mif" -adc     "$OUT_PATIENT_DIR/dti_metrics/md.mif"
+    "$MRTRIX_BIN/tensor2metric" "$OUT_PATIENT_DIR/dti_metrics/dti.mif" -fa "$OUT_PATIENT_DIR/dti_metrics/fa.mif" -adc        "$OUT_PATIENT_DIR/dti_metrics/md.mif"
+
+# ===============================================================================================================================
 
     # ==========================
-    # 4. Trattografia
+    # 4. Trattografia basata su FODs (CSD/MSMT-CSD)
     # ==========================
-    echo "[Step 4] Trattografia probabilistica con iFOD2 per $PATIENT_ID"
+    echo "[Step 4] Trattografia basata su FODs per $PATIENT_ID"
     
-    # 🔹 Determina se l'acquisizione è single-shell o multi-shell
-    SHELL_COUNT=$("$MRTRIX_BIN/mrinfo" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" -shell_bvalues | wc -w)
+    SHELL_COUNT=$("$MRTRIX_BIN/mrinfo" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
+    -shell_bvalues | tr ' ' '\n' | awk '$1>=50' | sort -n | uniq | wc -l)
     
-    if [ "$SHELL_COUNT" -gt 1 ]; then
+    echo "Shell count robusto (escluso b=0): $SHELL_COUNT"
+    
+    if [ "$SHELL_COUNT" -ge 2 ]; then
         echo "Usando il metodo Dhollander per la risposta multi-shell..."
         "$MRTRIX_BIN/dwi2response" dhollander "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-            "$OUT_PATIENT_DIR/tractography/response_wm.txt" \
-            "$OUT_PATIENT_DIR/tractography/response_gm.txt" \
-            "$OUT_PATIENT_DIR/tractography/response_csf.txt"
+            "$OUT_PATIENT_DIR/tractography/response_wm_fod.txt" \
+            "$OUT_PATIENT_DIR/tractography/response_gm_fod.txt" \
+            "$OUT_PATIENT_DIR/tractography/response_csf_fod.txt" -force
     else
         echo "Usando il metodo Tournier per la risposta single-shell..."
         "$MRTRIX_BIN/dwi2response" tournier "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-            "$OUT_PATIENT_DIR/tractography/response.txt"
+            "$OUT_PATIENT_DIR/tractography/response_fod.txt" -force
     fi
     
-    # 🔹 Creazione della maschera cerebrale (per la trattografia)
-    echo "[Step 5.1] Creazione della maschera cerebrale per $PATIENT_ID"
-    "$MRTRIX_BIN/dwi2mask" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-        "$OUT_PATIENT_DIR/preprocessing/mask.mif"
+    # 🔹 Creazione della maschera cerebrale per FODs
+    echo "Creazione della maschera cerebrale per FODs..."
+    "$MRTRIX_BIN/dwi2mask" "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" "$OUT_PATIENT_DIR/preprocessing/mask_fod.mif" -force
     
-    # 🔹 Ricostruzione dei FODs (senza ACT, ma con maschera)
-    if [ "$SHELL_COUNT" -gt 1 ]; then
+    # 🔹 Ricostruzione dei FODs
+    if [ "$SHELL_COUNT" -ge 2 ]; then
         echo "Ricostruzione MSMT-CSD per più tessuti..."
         CUDA_VISIBLE_DEVICES=0 "$MRTRIX_BIN/dwi2fod" msmt_csd "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-            "$OUT_PATIENT_DIR/tractography/response_wm.txt" "$OUT_PATIENT_DIR/tractography/fod_wm.mif" \
-            "$OUT_PATIENT_DIR/tractography/response_gm.txt" "$OUT_PATIENT_DIR/tractography/fod_gm.mif" \
-            "$OUT_PATIENT_DIR/tractography/response_csf.txt" "$OUT_PATIENT_DIR/tractography/fod_csf.mif"
+            "$OUT_PATIENT_DIR/tractography/response_wm_fod.txt" "$OUT_PATIENT_DIR/tractography/fod_wm.mif" \
+            "$OUT_PATIENT_DIR/tractography/response_gm_fod.txt" "$OUT_PATIENT_DIR/tractography/fod_gm.mif" \
+            "$OUT_PATIENT_DIR/tractography/response_csf_fod.txt" "$OUT_PATIENT_DIR/tractography/fod_csf.mif" -force
+        FOD_FILE="$OUT_PATIENT_DIR/tractography/fod_wm.mif"
     else
         echo "Ricostruzione CSD standard per single-shell..."
         CUDA_VISIBLE_DEVICES=0 "$MRTRIX_BIN/dwi2fod" csd "$OUT_PATIENT_DIR/preprocessing/dwi_preprocessed.mif" \
-            "$OUT_PATIENT_DIR/tractography/response.txt" "$OUT_PATIENT_DIR/tractography/fod.mif"
+            "$OUT_PATIENT_DIR/tractography/response_fod.txt" "$OUT_PATIENT_DIR/tractography/fod.mif" -force
+        FOD_FILE="$OUT_PATIENT_DIR/tractography/fod.mif"
     fi
     
-    # 🔹 Generazione della trattografia probabilistica con iFOD2 (senza ACT, con maschera)
-    echo "[Step 5.2] Generazione dei tratti con iFOD2 per $PATIENT_ID"
-    "$MRTRIX_BIN/tckgen" "$OUT_PATIENT_DIR/tractography/fod_wm.mif" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
-        -seed_dynamic "$OUT_PATIENT_DIR/tractography/fod_wm.mif" \
-        -mask "$OUT_PATIENT_DIR/preprocessing/mask.mif" \
-        -select 1000000 -algorithm iFOD2
+    # 🔹 Generazione della trattografia probabilistica con iFOD2
+    echo "Generazione della trattografia probabilistica con iFOD2..."
+    "$MRTRIX_BIN/tckgen" "$FOD_FILE" "$OUT_PATIENT_DIR/tractography/tracts_fod.tck" \
+        -seed_dynamic "$FOD_FILE" \
+        -mask "$OUT_PATIENT_DIR/preprocessing/mask_fod.mif" \
+        -select 1000000 -algorithm iFOD2 -force
 
-        # ==========================
-    # 6. Registrazione e Creazione delle ROI
+# ===============================================================================================================================
     # ==========================
-    echo "[Step 6] Registrazione degli atlanti e creazione delle ROI per $PATIENT_ID"
-    
-    # Definizione delle parcellizzazioni registrate
-    PARCELLATION_CORTICAL="$OUT_PATIENT_DIR/ROIs/parcellation_cortical.nii.gz"
-    PARCELLATION_SUBCORTICAL="$OUT_PATIENT_DIR/ROIs/parcellation_subcortical.nii.gz"
-    PARCELLATION_TOTAL="$OUT_PATIENT_DIR/ROIs/parcellation_total.nii.gz"
-    
-    # Registrazione degli atlanti
-    flirt -in "$ATLAS_CORTICAL" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
-          -out "$PARCELLATION_CORTICAL" -interp nearestneighbour -dof 12
-    
-    flirt -in "$ATLAS_SUBCORTICAL" -ref "$OUT_PATIENT_DIR/preprocessing/dwi_mni152.nii.gz" \
-          -out "$PARCELLATION_SUBCORTICAL" -interp nearestneighbour -dof 12
-    
-    # Unire le due parcellizzazioni in un'unica immagine
-    fslmaths "$PARCELLATION_CORTICAL" -add "$PARCELLATION_SUBCORTICAL" "$PARCELLATION_TOTAL"
-    
-    # Verifica che la parcellizzazione sia stata creata correttamente
-    if [ ! -f "$PARCELLATION_TOTAL" ]; then
-        echo "Errore: Il file di parcellizzazione totale non è stato creato!" >&2
-        exit 1
-    fi
-    
-    echo "Parcellizzazione combinata completata: $PARCELLATION_TOTAL"
-    
+    # 5 Registrazione delle ROI 
     # ==========================
-    # 7. Creazione delle singole ROI
-    # ==========================
-    echo "[Step 7] Estrazione delle ROI per $PATIENT_ID"
     
-    mkdir -p "$OUT_PATIENT_DIR/ROIs/cortical"
-    mkdir -p "$OUT_PATIENT_DIR/ROIs/subcortical"
-    
-    NUM_CORTICAL=48
-    NUM_SUBCORTICAL=21
-    
-    # Estraggo le ROI corticali 
-    for ((i=1; i<=NUM_CORTICAL; i++)); do
-        fslmaths "$PARCELLATION_CORTICAL" -thr $i -uthr $i -bin "$OUT_PATIENT_DIR/ROIs/cortical/ROI_${i}.nii.gz"
-    
-        if [ ! -f "$OUT_PATIENT_DIR/ROIs/cortical/ROI_${i}.nii.gz" ]; then
-            echo "Errore: ROI Corticale $i non è stata generata!" >&2
-            exit 1
-        fi
-    done
-    
-    # Estraggo le ROI subcorticali 
-    for ((i=1; i<=NUM_SUBCORTICAL; i++)); do
-        ROI_INDEX=$((i + 48))  # Le subcorticali iniziano da 49
-        fslmaths "$PARCELLATION_SUBCORTICAL" -thr $i -uthr $i -bin "$OUT_PATIENT_DIR/ROIs/subcortical/ROI_${ROI_INDEX}.nii.gz"
-    
-        if [ ! -f "$OUT_PATIENT_DIR/ROIs/subcortical/ROI_${ROI_INDEX}.nii.gz" ]; then
-            echo "Errore: ROI Subcorticale $ROI_INDEX non è stata generata!" >&2
-            exit 1
-        fi
-    done
-    
-    echo "Tutte le ROI sono state generate."
-    
-    # ==========================
-    # 8. Generazione della Matrice di Connettività
-    # ==========================
-    echo "[Step 8] Generazione della matrice di connettività per $PATIENT_ID"
-    
-    MATRIX_OUTPUT="$OUT_PATIENT_DIR/connectivity_matrix.csv"
-    
-    "$MRTRIX_BIN/tck2connectome" "$OUT_PATIENT_DIR/tractography/tracts.tck" \
-        "$PARCELLATION_TOTAL" \
-        "$MATRIX_OUTPUT" \
-        -symmetric -scale_invnodevol -stat_edge mean
-    
-    if [ ! -f "$MATRIX_OUTPUT" ]; then
-        echo "Errore: La matrice di connettività non è stata generata!" >&2
-        exit 1
-    fi
-    
-    echo "Matrice di connettività generata con successo: $MATRIX_OUTPUT"
-        
-    done
+    echo "[Step 5] Registrazione degli atlanti per $PATIENT_ID"
 
-echo "Tutti i pazienti sono stati processati con successo!"
+    NUM_CORTICAL=$(fslstats "$ATLAS_CORTICAL" -R | awk '{print int($2)}')
+    NUM_SUBCORTICAL=$(fslstats "$ATLAS_SUBCORTICAL" -R | awk '{print int($2)}')
+    
+    echo "Numero di ROI Corticali: $NUM_CORTICAL"
+    echo "Numero di ROI Subcorticali: $NUM_SUBCORTICAL"
+
+    echo "[Step 5] Registrazione degli atlanti per $PATIENT_ID"
+    
+    ROI_DIR="${OUT_PATIENT_DIR%/}/ROIs"
+    mkdir -p "$ROI_DIR/cortical" "$ROI_DIR/subcortical"
+    
+    # Creazione ROI separate per l'atlante corticale
+    for ((i=1; i<=NUM_CORTICAL; i++)); do 
+        "$MRTRIX_BIN/mrcalc" "$ATLAS_CORTICAL" $i -eq "$ROI_DIR/cortical/Cortical_${i}.nii.gz" -force
+    done 
+    
+    # Creazione ROI separate per l'atlante subcorticale
+    for ((i=1; i<=NUM_SUBCORTICAL; i++)); do 
+        "$MRTRIX_BIN/mrcalc" "$ATLAS_SUBCORTICAL" $i -eq "$ROI_DIR/subcortical/Subcortical_${i}.nii.gz" -force
+    done 
+    
+    echo "ROI separate create per $PATIENT_ID"
+
+#===============================================================================================================================
+
+    # ==========================
+    # 6 Generazione delle Matrici di Connettività Separate
+    # ==========================
+    
+    echo "[Step 6] Generazione della matrice di connettività per $PATIENT_ID"
+    
+    MATRIX_CORTICAL="$OUT_PATIENT_DIR/connectivity_matrix_cortical.csv"
+    MATRIX_SUBCORTICAL="$OUT_PATIENT_DIR/connectivity_matrix_subcortical.csv"
+    ASSIGNMENTS_OUTPUT="$OUT_PATIENT_DIR/connectivity_assignments.csv"
+    
+    # Controllo se la trattografia è stata generata
+    TRACT_FILE="$OUT_PATIENT_DIR/tractography/tracts_fod.tck"
+    if [ ! -f "$TRACT_FILE" ]; then
+        echo "❌ Errore: Il file di trattografia non esiste in $OUT_PATIENT_DIR/tractography! Controlla il preprocessing." >&2
+        continue
+    fi
+    
+    # Generazione della matrice di connettività per il corticale
+    "$MRTRIX_BIN/tck2connectome" "$TRACT_FILE" "$ATLAS_CORTICAL" "$MATRIX_CORTICAL" \
+        -symmetric -scale_invnodevol -stat_edge mean -out_assignments "$ASSIGNMENTS_OUTPUT" -force
+    
+    # Generazione della matrice di connettività per il subcorticale
+    "$MRTRIX_BIN/tck2connectome" "$TRACT_FILE" "$ATLAS_SUBCORTICAL" "$MATRIX_SUBCORTICAL" \
+        -symmetric -scale_invnodevol -stat_edge mean -out_assignments "$ASSIGNMENTS_OUTPUT" -force
+    
+    echo "✅ Matrici di connettività salvate come:"
+    echo "   - $MATRIX_CORTICAL"
+    echo "   - $MATRIX_SUBCORTICAL"
+
+
+# ===============================================================================================================================
+
+
+    # ==========================
+    # Generazione del Report Finale per il paziente
+    # ===========================
+    
+    REPORT_FILE="$OUT_PATIENT_DIR/reports/pipeline_report.txt"
+    {
+        echo "========================================="
+        echo "   PIPELINE DWI - REPORT FINALE"
+        echo "========================================="
+        echo "Paziente: $PATIENT_ID"
+        echo "Data elaborazione: $(date)"
+        echo ""
+        echo "➤ Step 1: Registrazione su MNI152 completata."
+        echo "    - Volume b0 estratto e registrato su spazio MNI152."
+        echo "    - Matrice di trasformazione salvata."
+        echo ""
+        echo "➤ Step 2: Preprocessing DWI eseguito con dwifslpreproc."
+        echo ""
+        echo "➤ Step 3: Calcolo del tensore di diffusione completato."
+        echo "    - Mappe FA e MD generate."
+        echo ""
+        echo "➤ Step 4: Trattografia eseguita con metodo $(if [ "$SHELL_COUNT" -ge 2 ]; then echo 'MSMT-CSD'; else echo 'CSD'; fi)."
+        echo "    - ROI mask generata."
+        echo "    - Trattografia generata con iFOD2."
+        echo ""
+        echo "➤ Step 5: Registrazione Atlanti Harvard-Oxford."
+        echo "    - Numero ROI corticali: $NUM_CORTICAL"
+        echo "    - Numero ROI subcorticali: $NUM_SUBCORTICAL"
+        echo "    - ROI segmentate salvate in $ROI_DIR."
+        echo ""
+        echo "➤ Step 6: Matrici di connettività create."
+        echo "    - Matrice corticale: $MATRIX_CORTICAL"
+        echo "    - Matrice subcorticale: $MATRIX_SUBCORTICAL"
+        echo "    - File di assegnazione: $ASSIGNMENTS_OUTPUT"
+        echo ""
+        echo "✅ Elaborazione completata per $PATIENT_ID!"
+        echo "========================================="
+    } > "$REPORT_FILE"
+
+echo "📄 Report salvato in: $REPORT_FILE"
+
+done
+
+#===============================================================================================================================
+
+echo "✅ Processo completato per tutti i soggetti!"
+
+    
+
+
