@@ -130,7 +130,7 @@ processed_DWI/
 ```
 Esempio:
 ```bash
-./dwi_processing_pipeline.sh raw_DWI processed_DWI /path/to/MNI152_T1_1mm.nii.gz
+./dwi_processing_pipeline.sh raw_DWI processed_DWI /path/to/Atlas.nii.gz
 ```
 
 ---
