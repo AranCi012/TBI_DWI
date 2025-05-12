@@ -44,7 +44,7 @@ Quindi **basta impazzire con Stack Overflow**: qui hai **TUTTO**. 😎
 
 ### **1️⃣ Clona la repo **  
 
-Fine ( ok leggi anche che fanno le cose però )
+Fine
 
 ---
 
