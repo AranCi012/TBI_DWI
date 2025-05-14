@@ -42,26 +42,6 @@ Questa repository è pensata per:
 ---
 
 ## 🚀 Come Iniziare
-
-### 1️⃣ Clona la repository
-
-<<<<<<< HEAD:README copia.md
-<<<<<<< HEAD
-Fine
-=======
-```bash
-git clone https://github.com/tuo_username/mri-brain-toolbox.git
-```
-
-=======
->>>>>>> f19a0ee (upload del nuovo readme):README.md
-### 2️⃣ Segui le istruzioni nel README di ciascuna cartella
-
-Ogni modulo è documentato e pronto all’uso.
->>>>>>> 8375f11 (upload del nuovo readme)
-
----
-
 ## 🔍 Perché Usare Questa Repository?
 
 * ✅ Tutto il necessario in un unico posto
