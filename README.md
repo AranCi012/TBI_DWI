@@ -41,7 +41,6 @@ Questa repository è pensata per:
 
 ---
 
-## 🚀 Come Iniziare
 ## 🔍 Perché Usare Questa Repository?
 
 * ✅ Tutto il necessario in un unico posto
