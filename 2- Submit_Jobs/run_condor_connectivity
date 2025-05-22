@@ -1,0 +1,19 @@
+universe = vanilla
+
+environment = "JOBID=$(Cluster).$(Process)"
+
+executable = /lustrehome/alacalamita/Test_Imm/Eseguibile_Connectivity.sh
+
+log = /lustrehome/alacalamita/Test_Imm/log/log_Connectivity_nout
+
+error = /lustrehome/alacalamita/Test_Imm/log/err_Connectivity_nout
+
+output = /lustrehome/alacalamita/Test_Imm/log/out_Connectivity_nout
+
+request_cpus = 1
+
+request_memory = 8G
+
+# request_gpus = 1
+
+queue

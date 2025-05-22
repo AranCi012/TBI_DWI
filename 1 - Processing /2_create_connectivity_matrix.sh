@@ -2,36 +2,38 @@
 
 set -euo pipefail
 
-MRTRIX_BIN="/lustrehome/emanueleamato/.conda/envs/tbi_dwi_py310/bin"
-PROCESSED_DIR="processed_DWI"
-ATLAS_COMPLETE="/lustrehome/emanueleamato/TBI_DWI/HarvardOxford-complete-final.nii"
 
-for TRACT_FILE in $(find "$PROCESSED_DIR" -name "tracts_fod.tck"); do
+MRTRIX_BIN=""
+PROCESSED_DIR=""
+ATLAS_COMPLETE=""
+
+for TRACT_FILE in $(find "$PROCESSED_DIR" -name "tracts.tck"); do
     PATIENT_DIR=$(dirname "$(dirname "$TRACT_FILE")")
     PATIENT_ID=$(basename "$PATIENT_DIR")
-    echo "🔁 [$PATIENT_ID] Processing..."
+    echo "[$PATIENT_ID] Processing..."
 
-    # Ora OUTDIR è specifico per ogni paziente
-    OUTDIR="/lustrehome/emanueleamato/TBI_DWI/block_connectome/final/${PATIENT_ID}"
+    OUTDIR="/lustrehome/emanueleamato/TBI_DWI/test/$PATIENT_ID"
     mkdir -p "$OUTDIR"
 
-    echo "🧭 Conversione atlante nello spazio tract..."
+    echo "Conversione atlante nello spazio tract..."
     REFERENCE="$PATIENT_DIR/preprocessing/dwi_preprocessed.mif"
 
     "$MRTRIX_BIN/mrconvert" "$ATLAS_COMPLETE" \
-        -datatype uint32 -force "$OUTDIR/atlas_130_tmp.mif"
+        -datatype uint32 -force "$OUTDIR/atlas_tmp.mif"
 
-    "$MRTRIX_BIN/mrtransform" "$OUTDIR/atlas_130_tmp.mif" \
-        -template "$REFERENCE" -interp nearest -force "$OUTDIR/atlas_130_aligned.mif"
+    "$MRTRIX_BIN/mrtransform" "$OUTDIR/atlas_tmp.mif" \
+        -template "$REFERENCE" -interp nearest -force "$OUTDIR/atlas_aligned.mif"
 
-    rm "$OUTDIR/atlas_130_tmp.mif"
+    rm "$OUTDIR/atlas_tmp.mif"
 
-    echo "📊 Generazione matrice 130x130 (conteggio streamline, diagonale a 0)..."
-    "$MRTRIX_BIN/tck2connectome" "$TRACT_FILE" "$OUTDIR/atlas_130_aligned.mif" \
-        "$OUTDIR/connectivity_matrix_complete.csv" \
+    echo "Generazione matrice di connettività (zero diagonale)..."
+    "$MRTRIX_BIN/tck2connectome" "$TRACT_FILE" "$OUTDIR/atlas_aligned.mif" \
+        "$OUTDIR/connectivity_matrix.csv" \
         -zero_diagonal \
         -out_assignments "$OUTDIR/assignments.csv" \
         -force
+done
+
 
     
     # =========================================================
@@ -61,7 +63,7 @@ for TRACT_FILE in $(find "$PROCESSED_DIR" -name "tracts_fod.tck"); do
     #
     # =========================================================
 
-    echo "✅ [$PATIENT_ID] COMPLETATO"
+    echo "[$PATIENT_ID] COMPLETATO"
 done
 
 echo "🏁 Tutti i pazienti processati correttamente."
